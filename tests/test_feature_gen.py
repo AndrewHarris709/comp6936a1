@@ -2,7 +2,8 @@ import pandas as pd
 from pandas.testing import assert_series_equal
 
 from pytest import fixture
-from feature_gen import word_count, character_count, chars_per_word, capital_ratio, dollar_sign_ratio, first_year, word_instance_ratio
+from feature_gen import (word_count, character_count, chars_per_word, capital_ratio, character_ratio, first_year,
+                         word_instance_ratio, word_pairs, word_instances)
 
 @fixture
 def general_data():
@@ -11,6 +12,18 @@ def general_data():
         "$APPL: This is the Apple Corporation.",
         "$$One-Long-Word",
         "no capitals",
+        "",
+    ], columns=["sentence"])
+    return data
+
+
+@fixture
+def bighuge_data():
+    data = pd.DataFrame([
+        "This is a big deal.",
+        "This is big, and also huge.",
+        "This is a small deal.",
+        "Bigger than ever, huger than everything, oh my!",
         "",
     ], columns=["sentence"])
     return data
@@ -36,9 +49,22 @@ def test_capital_ratio(general_data):
     assert_series_equal(result['capital_ratio'], pd.Series([2/13, 7/37, 3/15, 0, 0], name='capital_ratio'))
 
 
-def test_dollar_sign(general_data):
-    result = dollar_sign_ratio(general_data)
-    assert_series_equal(result['dollar_sign_ratio'], pd.Series([0, 1/37, 2/15, 0, 0], name='dollar_sign_ratio'))
+def test_char_count(general_data):
+    result = character_ratio(general_data, '$')
+    assert_series_equal(result[f'$_ratio'], pd.Series([0, 1/37, 2/15, 0, 0], name='$_ratio'))
+
+
+def test_word_pair():
+    data = pd.DataFrame([
+        "This is very good!",
+        "This is bad, really awful, not good. Did I mention bad?",
+        "Bad in some ways, good in others.",
+        "I'm feeling neutral about this.",
+        "",
+    ], columns=["sentence"])
+    result = word_pairs(data, [[['bad', 'awful'], 'good'], ['good', ['bad', 'awful']]])
+    assert_series_equal(result['badgood_word_pair'], pd.Series([1/4, -2/11, 0, 0, 0], name='badgood_word_pair'))
+    assert_series_equal(result['goodbad_word_pair'], pd.Series([-1/4, 2/11, 0, 0, 0], name='goodbad_word_pair'))
 
 
 def test_first_year():
@@ -53,13 +79,11 @@ def test_first_year():
     assert_series_equal(result['first_year'], pd.Series([2008, 1995, 2005, 1900, 1900], name='first_year'))
 
 
-def test_word_instance_ratio():
-    data = pd.DataFrame([
-        "This is a big deal.",
-        "This is big, and also huge.",
-        "This is a small deal.",
-        "Bigger than ever, huger than everything, oh my!",
-        "",
-    ], columns=["sentence"])
-    result = word_instance_ratio(data, ["big", "huge"])
+def test_word_instance_ratio(bighuge_data):
+    result = word_instance_ratio(bighuge_data, ["big", "huge"])
     assert_series_equal(result['word_big_ratio'], pd.Series([1/5, 2/6, 0, 2/8, 0], name='word_big_ratio'))
+
+
+def test_word_instances(bighuge_data):
+    result = word_instances(bighuge_data, [['big', 'huge']])
+    assert_series_equal(result['word_big_count'], pd.Series([1, 2, 0, 2, 0], name='word_big_count'))
